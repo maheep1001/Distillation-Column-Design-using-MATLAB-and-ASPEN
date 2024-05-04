@@ -1,1 +1,170 @@
+F=input('molar flow rate of feed');
+xf=input('mole fraction of feed');
+xd=input('mole fraction of distillate');
+xw=input('mole fraction of bottoms');
+ 
+syms D W;
+eqn1 = F==D+W;
+eqn2 = xf*F==xd*D+xw*W;
+ 
+sol= solve([eqn1,eqn2],[D,W]);
+ 
+xsol=sol.D;
+ysol=sol.W;
+ 
+disp(['D=',char(xsol)]);
+disp(['W=',char(ysol)]);
+ 
+%calculating the partial pressures of pentane and hexane...
+ 
+A=[13.9778,14.0568];
+B=[2554.6,2825.42];
+C=[-36.2529,-42.7089];
+Pt=101.325;
+ 
+x=0:0.05:1;
+dT=0.01;
+Tb=B./(A-log(Pt))-C;
+ 
+for i=1:21
+    xi=x(i);
+    %assume a temperature for bubble point calculation...
+    T=xi*Tb(1)+(1-xi)*Tb(2);
+    
+    for n=1:20
+        f=xi*exp(A(1)-(B(1)/(T+C(1))))+(1-xi)*exp(A(2)-(B(2)/(T+C(2))))-Pt;
+        T1=T+dT;
+        f1=xi*exp(A(1)-(B(1)/(T1+C(1))))+(1-xi)*exp(A(2)-(B(2)/(T1+C(2))))-Pt;
+        fp=(f1-f)/dT;
+        eT=f/fp;
+        T=T-eT;
+        if abs(eT)<0.001
+            break
+        end
+    end
+    yi=xi*exp(A(1)-B(1)/(T+C(1)))/Pt;
+    y(i)=yi;
+    fprintf('x = %4.2f , y = %4.2f, T(K) = %4.2f\n',xi,yi,T);
+end
+ 
+%calculating feed line slope...
+ 
+L=[11369,13572];
+Cp=[39.7,51.7];
+ 
+Lt=(xf*L(1))+((1-xf)*L(2));
+Cpt=(xf*Cp(1))+((1-xf)*Cp(2));
+ 
+q=1+((Cpt*(Tb(1)-303.15))/Lt);
+ 
+ 
+ 
+%calculating equilibrium curve...
+ 
+alpha=input('relative volatility');
+x=0:0.05:1;
+ 
+for i=1:21
+    xi=x(i);
+    yi=(alpha*xi)/((1+(alpha-1)*xi));
+    y(i)=yi;
+    fprintf('x = %4.2f , y = %4.2f\n',xi,yi);   
+end
+ 
+x1=0:0.05:1;
+for i=1:21
+    x1i=x1(i);
+    y1i=x1i;
+    y1(i)=y1i;
+end
+ 
+x2=0:0.05:0.4;
+for i=1:9
+    x2i=x2(i);
+    y2i=((-(ysol/xsol))*x2i+(F/xsol)*xf);
+    y2(i)=y2i;
+end
+ 
+ 
+plot(x,y,x1,y1,x2,y2);
+hold on;
+plot(xf,xf,'r*');
+hold off;
+ 
+%finding the intersetion point between the line and curve for calc Rmin
+ 
+ 
+% Prompt the user to click on the plot to identify the intersection point
+disp('Click on the intersection point on the plot');
+[x_intersect, y_intersect] = ginput(1);
+ 
+% Plot the intersection point on the same graph
+plot(x,y,x1,y1,x2,y2);
+hold on;
+plot(xf,xf,'r*');
+hold off;
+hold on;
+plot(x_intersect, y_intersect);
+text(x_intersect, y_intersect, ['(', num2str(x_intersect), ', ', num2str(y_intersect), ')'], 'VerticalAlignment', 'bottom');
+hold off;
+title('Equilibrium Curve')
+ 
+ 
+%calculating Rmin and plotting the rectification section operating line
+ 
+ 
+slope=(xd-y_intersect)/(xd-x_intersect);
+Rmin=slope/(1-slope);
+Ract=(1.2)*Rmin;
+fprintf('Ract=%4.2f',Ract);
+ 
+x3=0:0.05:1;
+for i=1:21
+    x3i=x3(i);
+    y3i=((Ract/(Ract+1))*x3i+(1/(Ract+1))*xd);
+    y3(i)=y3i;
+end
+hold on;
+plot(x3,y3);
+hold off;
+ 
+%plotting the stripping section line
+ 
+[x_int,y_int] = ginput(1);
+hold on;
+plot(x_int,y_int);
+hold off;
+slop=(xw-y_int)/(xw-x_int);
+x4=0:0.05:1;
+for i=1:21
+    x4i=x4(i);
+    y4i=(slop)*x4i+y_int-(slop*x_int);
+    y4(i)=y4i;
+end
+ hold on;
+ plot(x4,y4);
+ hold off;
+ 
+ 
+ 
+%calculating the number of stages required
+ 
+stages=0;
+x5=1;
+y5=xd;
+while (x5>xw)
+if (x5>x_int)
+    x5=y5/(alpha+y5*(1-alpha));
+    y5=((Ract/(Ract+1))*x5+(1/(Ract+1))*xd);
+    stages=stages+1;
+elseif (x5>xw && x5<x_int)
+    x5=y5/(alpha+y5*(1-alpha));
+    y5=(slop)*x5+(y_int-(slop*x_int));
+    stages=stages+1;
+end
+end
+ 
+disp(['Minimum number of stages required: ', num2str(stages)]);
+    
+
 
